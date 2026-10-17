@@ -1824,7 +1824,7 @@ function select(name,save=true){selected=name;const n=data.stats.districts[name]
  if(projection){const f=data.districts.features.find(f=&gt;f.properties.district_name===name),b=path.bounds(f),s=Math.min(8,.82/Math.max((b[1][0]-b[0][0])/width,(b[1][1]-b[0][1])/height)),cx=(b[0][0]+b[1][0])/2,cy=(b[0][1]+b[1][1])/2;svg.call(zoom.transform,d3.zoomIdentity.translate(width/2-s*cx,height/2-s*cy).scale(s));}
  if(save&amp;&amp;window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{district:name},privateContent:null}).catch(()=&gt;{});
 }
-names.forEach((name,i)=&gt;{const b=document.createElement(&#x27;button&#x27;);b.type=&#x27;button&#x27;;b.className=&#x27;district-key cursor-interaction&#x27;;b.textContent=`${i+1} ${name}`;b.setAttribute(&#x27;aria-label&#x27;,`${name}, ${fmt(data.stats.districts[name]||0)} mapped youth`);b.addEventListener(&#x27;click&#x27;,()=&gt;select(name));root.querySelector(&#x27;#cac-map-districts&#x27;).appendChild(b)});
+names.forEach((name,i)=&gt;{const b=document.createElement(&#x27;button&#x27;);b.type=&#x27;button&#x27;;b.className=&#x27;district-key cursor-interaction&#x27;;b.textContent=name;b.setAttribute(&#x27;aria-label&#x27;,`${name}, ${fmt(data.stats.districts[name]||0)} mapped youth`);b.addEventListener(&#x27;click&#x27;,()=&gt;select(name));root.querySelector(&#x27;#cac-map-districts&#x27;).appendChild(b)});
 function draw(){width=area.clientWidth;height=Math.max(420,Math.min(650,width*.9));svg.attr(&#x27;viewBox&#x27;,`0 0 ${width} ${height}`).attr(&#x27;height&#x27;,height);svg.selectAll(&#x27;*&#x27;).remove();projection=d3.geoMercator().fitExtent([[20,20],[width-20,height-20]],data.council);path=d3.geoPath(projection);
  const defs=svg.append(&#x27;defs&#x27;);defs.append(&#x27;clipPath&#x27;).attr(&#x27;id&#x27;,&#x27;cac-council-clip&#x27;).append(&#x27;path&#x27;).attr(&#x27;d&#x27;,path(data.council));
  layer=svg.append(&#x27;g&#x27;);layer.selectAll(&#x27;.county&#x27;).data(data.counties.features).join(&#x27;path&#x27;).attr(&#x27;class&#x27;,&#x27;county&#x27;).attr(&#x27;d&#x27;,path);
@@ -1832,7 +1832,18 @@ function draw(){width=area.clientWidth;height=Math.max(420,Math.min(650,width*.9
  layer.selectAll(&#x27;.region&#x27;).data(data.districts.features).join(&#x27;path&#x27;).attr(&#x27;class&#x27;,&#x27;region&#x27;).attr(&#x27;d&#x27;,path).attr(&#x27;pointer-events&#x27;,&#x27;none&#x27;);
  const labels=layer.append(&#x27;g&#x27;);
  data.counties.features.forEach(f=&gt;{const p=path.centroid(f);labels.append(&#x27;text&#x27;).attr(&#x27;class&#x27;,&#x27;county-label&#x27;).attr(&#x27;x&#x27;,p[0]).attr(&#x27;y&#x27;,p[1]).attr(&#x27;text-anchor&#x27;,&#x27;middle&#x27;).attr(&#x27;pointer-events&#x27;,&#x27;none&#x27;).text(f.properties.county_name)});
- data.districts.features.forEach((f,i)=&gt;{let p=path.centroid(f);labels.append(&#x27;text&#x27;).attr(&#x27;class&#x27;,&#x27;map-label&#x27;).attr(&#x27;x&#x27;,p[0]).attr(&#x27;y&#x27;,p[1]-12).attr(&#x27;text-anchor&#x27;,&#x27;middle&#x27;).attr(&#x27;pointer-events&#x27;,&#x27;none&#x27;).text(i+1)});
+ const labelNodes=data.districts.features.map(f=&gt;{const p=path.centroid(f);return {name:f.properties.district_name,x:p[0],y:p[1]-12,ax:p[0],ay:p[1],w:f.properties.district_name.length*6.5+12};});
+ for(let step=0;step&lt;180;step++){
+  for(let i=0;i&lt;labelNodes.length;i++)for(let j=i+1;j&lt;labelNodes.length;j++){
+   const a=labelNodes[i],b=labelNodes[j],dx=b.x-a.x,dy=b.y-a.y;
+   if(Math.abs(dx)&lt;(a.w+b.w)/2 &amp;&amp; Math.abs(dy)&lt;22){const push=(22-Math.abs(dy))/2+.1;const sign=dy&gt;=0?1:-1;a.y-=push*sign;b.y+=push*sign;}
+  }
+  labelNodes.forEach(n=&gt;{n.x=Math.max(n.w/2+5,Math.min(width-n.w/2-5,n.x));n.y=Math.max(18,Math.min(height-8,n.y));});
+ }
+ labelNodes.forEach(n=&gt;{
+  if(Math.abs(n.y-n.ay)&gt;20)labels.append(&#x27;line&#x27;).attr(&#x27;x1&#x27;,n.ax).attr(&#x27;y1&#x27;,n.ay).attr(&#x27;x2&#x27;,n.x).attr(&#x27;y2&#x27;,n.y).attr(&#x27;stroke&#x27;,&#x27;var(--foreground)&#x27;).attr(&#x27;stroke-opacity&#x27;,.6).attr(&#x27;stroke-width&#x27;,.7).attr(&#x27;vector-effect&#x27;,&#x27;non-scaling-stroke&#x27;).attr(&#x27;pointer-events&#x27;,&#x27;none&#x27;);
+  labels.append(&#x27;text&#x27;).attr(&#x27;class&#x27;,&#x27;map-label&#x27;).attr(&#x27;x&#x27;,n.x).attr(&#x27;y&#x27;,n.y).attr(&#x27;text-anchor&#x27;,&#x27;middle&#x27;).attr(&#x27;pointer-events&#x27;,&#x27;none&#x27;).text(n.name);
+ });
  zoom=d3.zoom().scaleExtent([1,12]).translateExtent([[-width,-height],[2*width,2*height]]).on(&#x27;zoom&#x27;,e=&gt;{layer.attr(&#x27;transform&#x27;,e.transform);layer.selectAll(&#x27;.map-label,.county-label&#x27;).attr(&#x27;transform&#x27;,function(){const x=this.getAttribute(&#x27;x&#x27;),y=this.getAttribute(&#x27;y&#x27;);return `translate(${x},${y}) scale(${1/e.transform.k}) translate(${-x},${-y})`});tip.hidden=true;});svg.call(zoom).call(zoom.transform,d3.zoomIdentity);
  if(selected)select(selected,false);
 }
